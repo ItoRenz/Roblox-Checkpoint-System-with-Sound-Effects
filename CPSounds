@@ -1,0 +1,61 @@
+-- Script untuk Multiple Checkpoints dengan Suara
+-- Letakkan script ini di dalam Folder yang berisi semua Part checkpoint
+
+local checkpointsFolder = script.Parent
+local soundId = "rbxassetid://91374794193192"
+
+-- Debounce untuk mencegah suara diputar berulang kali terlalu cepat
+local debounce = {}
+
+-- Fungsi untuk setup checkpoint
+local function setupCheckpoint(checkpoint)
+	-- Pastikan object adalah Part
+	if not checkpoint:IsA("BasePart") then
+		return
+	end
+	
+	-- Buat Sound object untuk setiap checkpoint
+	local sound = Instance.new("Sound")
+	sound.SoundId = soundId
+	sound.Volume = 0.5 -- Sesuaikan volume (0-1)
+	sound.Parent = checkpoint
+	
+	-- Fungsi ketika part disentuh
+	local function onTouch(hit)
+		local humanoid = hit.Parent:FindFirstChild("Humanoid")
+		
+		-- Cek apakah yang menyentuh adalah player
+		if humanoid then
+			local player = game.Players:GetPlayerFromCharacter(hit.Parent)
+			
+			if player and not debounce[player] then
+				debounce[player] = true
+				
+				-- Mainkan suara
+				sound:Play()
+				
+				-- Optional: Ubah warna checkpoint sebentar
+				local originalColor = checkpoint.BrickColor
+				checkpoint.BrickColor = BrickColor.new("Bright green")
+				
+				-- Reset debounce setelah 2 detik
+				task.wait(2)
+				checkpoint.BrickColor = originalColor
+				debounce[player] = false
+			end
+		end
+	end
+	
+	-- Hubungkan fungsi dengan event Touched
+	checkpoint.Touched:Connect(onTouch)
+end
+
+-- Loop melalui semua children di folder
+for _, checkpoint in pairs(checkpointsFolder:GetChildren()) do
+	setupCheckpoint(checkpoint)
+end
+
+-- Jika ada checkpoint baru ditambahkan ke folder
+checkpointsFolder.ChildAdded:Connect(function(newCheckpoint)
+	setupCheckpoint(newCheckpoint)
+end)
