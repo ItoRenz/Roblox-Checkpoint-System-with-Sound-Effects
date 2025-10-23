@@ -1,61 +1,96 @@
--- Script untuk Multiple Checkpoints dengan Suara
--- Letakkan script ini di dalam Folder yang berisi semua Part checkpoint
+--[[
+	Multiple Checkpoints System with Sound
+	Author: ItoRenz00
+	Description: A Roblox script that adds sound effects to multiple checkpoint parts
+	Place this script inside a Folder containing all checkpoint Parts
+--]]
 
+-- Configuration
 local checkpointsFolder = script.Parent
-local soundId = "rbxassetid://91374794193192"
+local SOUND_ID = "rbxassetid://91374794193192"
+local SOUND_VOLUME = 0.5
+local DEBOUNCE_TIME = 2
+local CHECKPOINT_COLOR = BrickColor.new("Bright green")
 
--- Debounce untuk mencegah suara diputar berulang kali terlalu cepat
-local debounce = {}
+-- Debounce table to prevent rapid sound replays
+local debounceTable = {}
 
--- Fungsi untuk setup checkpoint
+--[[
+	Sets up a checkpoint with touch detection and sound
+	@param checkpoint BasePart - The checkpoint part to setup
+--]]
 local function setupCheckpoint(checkpoint)
-	-- Pastikan object adalah Part
+	-- Ensure the object is a BasePart
 	if not checkpoint:IsA("BasePart") then
+		warn("Object is not a BasePart:", checkpoint.Name)
 		return
 	end
 	
-	-- Buat Sound object untuk setiap checkpoint
+	-- Create Sound instance for this checkpoint
 	local sound = Instance.new("Sound")
-	sound.SoundId = soundId
-	sound.Volume = 0.5 -- Sesuaikan volume (0-1)
+	sound.SoundId = SOUND_ID
+	sound.Volume = SOUND_VOLUME
 	sound.Parent = checkpoint
 	
-	-- Fungsi ketika part disentuh
+	-- Store original color for restoration
+	local originalColor = checkpoint.BrickColor
+	
+	--[[
+		Handles touch events on the checkpoint
+		@param hit BasePart - The part that touched the checkpoint
+	--]]
 	local function onTouch(hit)
+		-- Check if a humanoid touched the checkpoint
 		local humanoid = hit.Parent:FindFirstChild("Humanoid")
 		
-		-- Cek apakah yang menyentuh adalah player
-		if humanoid then
-			local player = game.Players:GetPlayerFromCharacter(hit.Parent)
-			
-			if player and not debounce[player] then
-				debounce[player] = true
-				
-				-- Mainkan suara
-				sound:Play()
-				
-				-- Optional: Ubah warna checkpoint sebentar
-				local originalColor = checkpoint.BrickColor
-				checkpoint.BrickColor = BrickColor.new("Bright green")
-				
-				-- Reset debounce setelah 2 detik
-				task.wait(2)
-				checkpoint.BrickColor = originalColor
-				debounce[player] = false
-			end
+		if not humanoid then
+			return
 		end
+		
+		-- Get the player from the character
+		local player = game.Players:GetPlayerFromCharacter(hit.Parent)
+		
+		if not player then
+			return
+		end
+		
+		-- Check debounce
+		if debounceTable[player] then
+			return
+		end
+		
+		-- Set debounce
+		debounceTable[player] = true
+		
+		-- Play sound effect
+		sound:Play()
+		
+		-- Visual feedback: Change checkpoint color
+		checkpoint.BrickColor = CHECKPOINT_COLOR
+		
+		-- Reset after debounce time
+		task.delay(DEBOUNCE_TIME, function()
+			checkpoint.BrickColor = originalColor
+			debounceTable[player] = nil
+		end)
 	end
 	
-	-- Hubungkan fungsi dengan event Touched
+	-- Connect the touch event
 	checkpoint.Touched:Connect(onTouch)
+	
+	print("Checkpoint setup complete:", checkpoint.Name)
 end
 
--- Loop melalui semua children di folder
-for _, checkpoint in pairs(checkpointsFolder:GetChildren()) do
+-- Initialize all existing checkpoints in the folder
+for _, checkpoint in ipairs(checkpointsFolder:GetChildren()) do
 	setupCheckpoint(checkpoint)
 end
 
--- Jika ada checkpoint baru ditambahkan ke folder
+-- Handle dynamically added checkpoints
 checkpointsFolder.ChildAdded:Connect(function(newCheckpoint)
+	task.wait() -- Wait a frame to ensure the object is fully loaded
 	setupCheckpoint(newCheckpoint)
 end)
+
+print("Multiple Checkpoints System initialized successfully!")
+print("Total checkpoints:", #checkpointsFolder:GetChildren())
