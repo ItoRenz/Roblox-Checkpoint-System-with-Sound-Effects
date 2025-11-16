@@ -1,82 +1,137 @@
 --[[
-	Multiple Checkpoints System
-	Author: ItoRenz00 + modification
-	Description: Checkpoint hanya dengan efek suara,
-                 nama bebas asalkan mengandung angka unik.
-                 Efek suara hanya muncul sekali per checkpoint per respawn player.
-	Place this script inside a Folder berisi part checkpoint.
---]]
+	═══════════════════════════════════════════════════════════════
+	MULTIPLE CHECKPOINTS SYSTEM
+	═══════════════════════════════════════════════════════════════
+	Author: ItoRenz00
+	Version: 1.1
+	Description: Checkpoint system with sound effects
+	             - Sound plays once per checkpoint per player respawn
+	             - Checkpoint names must contain unique numbers
+	             - Clean logging with debug mode
+	═══════════════════════════════════════════════════════════════
+	Place this script inside a Folder containing checkpoint parts
+	═══════════════════════════════════════════════════════════════
+]]
 
-local checkpointsFolder = script.Parent
+-- ═══════════════════════════════════════════════════════════════
+-- CONFIGURATION
+-- ═══════════════════════════════════════════════════════════════
+
+local DEBUG_MODE = false -- Set true for detailed logs
+
 local SOUND_ID = "rbxassetid://4757565956"
 local SOUND_VOLUME = 0.5
 
+-- ═══════════════════════════════════════════════════════════════
+-- VARIABLES
+-- ═══════════════════════════════════════════════════════════════
+
+local checkpointsFolder = script.Parent
 local playerCheckpointTouched = {}
 
-local function extractCheckpointNumber(name)
-    local num = string.match(name, "%d+")
-    if num then
-        return tonumber(num)
-    else
-        return nil
-    end
+-- ═══════════════════════════════════════════════════════════════
+-- UTILITY FUNCTIONS
+-- ═══════════════════════════════════════════════════════════════
+
+local function debugLog(...)
+	if DEBUG_MODE then
+		print("[CheckpointSystem]", ...)
+	end
 end
+
+local function extractCheckpointNumber(name)
+	local num = string.match(name, "%d+")
+	if num then
+		return tonumber(num)
+	else
+		return nil
+	end
+end
+
+-- ═══════════════════════════════════════════════════════════════
+-- CHECKPOINT SETUP
+-- ═══════════════════════════════════════════════════════════════
 
 local function setupCheckpoint(checkpoint)
 	if not checkpoint:IsA("BasePart") then
-		warn("Object is not a BasePart:", checkpoint.Name)
+		warn("[CheckpointSystem] Object is not a BasePart:", checkpoint.Name)
 		return
 	end
 	
+	-- Create sound instance
 	local sound = Instance.new("Sound")
 	sound.SoundId = SOUND_ID
 	sound.Volume = SOUND_VOLUME
 	sound.Parent = checkpoint
-
+	
+	-- Touch event handler
 	local function onTouch(hit)
 		local humanoid = hit.Parent:FindFirstChild("Humanoid")
 		if not humanoid then return end
 		
 		local player = game.Players:GetPlayerFromCharacter(hit.Parent)
 		if not player then return end
-
+		
+		-- Initialize player's checkpoint tracking
 		if not playerCheckpointTouched[player.UserId] then
 			playerCheckpointTouched[player.UserId] = {}
 		end
-
+		
+		-- Extract checkpoint number from name
 		local checkpointNumber = extractCheckpointNumber(checkpoint.Name)
 		if not checkpointNumber then
-			warn("Checkpoint part name must contain a unique number: " .. checkpoint.Name)
+			warn("[CheckpointSystem] Checkpoint name must contain a number:", checkpoint.Name)
 			return
 		end
-
+		
+		-- Check if already touched this checkpoint after respawn
 		if playerCheckpointTouched[player.UserId][checkpointNumber] then
 			return
 		end
-
+		
+		-- Mark as touched and play sound
 		playerCheckpointTouched[player.UserId][checkpointNumber] = true
-
 		sound:Play()
+		
+		debugLog("Player", player.Name, "touched checkpoint", checkpointNumber)
 	end
 	
 	checkpoint.Touched:Connect(onTouch)
-	print("Checkpoint setup complete:", checkpoint.Name)
+	debugLog("Checkpoint setup:", checkpoint.Name)
 end
+
+-- ═══════════════════════════════════════════════════════════════
+-- PLAYER EVENT HANDLERS
+-- ═══════════════════════════════════════════════════════════════
 
 game.Players.PlayerAdded:Connect(function(player)
 	player.CharacterAdded:Connect(function()
+		-- Reset checkpoint tracking on respawn
 		playerCheckpointTouched[player.UserId] = {}
+		debugLog("Reset checkpoints for:", player.Name)
 	end)
 end)
+
+-- ═══════════════════════════════════════════════════════════════
+-- INITIALIZE EXISTING CHECKPOINTS
+-- ═══════════════════════════════════════════════════════════════
 
 for _, checkpoint in ipairs(checkpointsFolder:GetChildren()) do
 	setupCheckpoint(checkpoint)
 end
 
+-- Watch for new checkpoints added dynamically
 checkpointsFolder.ChildAdded:Connect(function(newCheckpoint)
 	task.wait()
 	setupCheckpoint(newCheckpoint)
 end)
 
-print("Multiple Checkpoints System ­– initialized successfully!")
-print("Total checkpoints:", #checkpointsFolder:GetChildren())
+-- ═══════════════════════════════════════════════════════════════
+-- INITIALIZATION
+-- ═══════════════════════════════════════════════════════════════
+
+print("========================================")
+print("✅ Multiple Checkpoints System Ready")
+print("👤 Author: ItoRenz00")
+print("📦 Total Checkpoints:", #checkpointsFolder:GetChildren())
+print("========================================")
